@@ -20,7 +20,7 @@ pip install -e .
 3. To run the code involving autoregressive flow, clone the [FFJORD repo](https://github.com/rtqichen/ffjord) and follow the instructions. Please note that these models are more expensive to train than the vanilla neural networks and VAEs used in the experiments.
 
 ## Usage
-A documented example of VBA is given in ```example.py```. 
+A documented example of VBA is given in ```example.py```. Adapting the code for real-world data will likely require a different parameterization of models.
 
 The experiments are divided into ```linear_gaussian```, ```mnist```, and ```xray```. 
 
@@ -34,7 +34,7 @@ The experiments are divided into ```linear_gaussian```, ```mnist```, and ```xray
 2. For plots, run ```mnist_plot.py```
 
 ### X-Ray
-1. Run ```rain_xray.py``` (Warning: FFJORD must be properly configured)
+1. Run ```train_xray.py``` (Warning: FFJORD must be properly configured and trained separately)
 2. For table values, run ```generate_xray_table.py```, then ```load_xray_table.py```
 3. For plots, run ```generate_xray_plot.py```, then ```load_xray_plot.py```
    
