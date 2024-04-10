@@ -123,12 +123,12 @@ class SeparateTrainingWrapper(pl.LightningModule):
         target_loss = self.vb.target.compute_loss(Y, torch.cat([X, Z], 1))
         self.log('target_loss', target_loss)
 
-        encoder_loss = self.vb.encoder.compute_loss(Z, torch.cat([X, Y], 1))
+        encoder_loss = self.vb.encoder.compute_loss(Z, torch.cat([X, Y, Z_prime], 1))
         self.log('encoder_loss', encoder_loss)
 
         if not self.ignore_confounder:
 
-            confounder_loss = self.vb.confounder.compute_loss(Z, None)
+            confounder_loss = self.vb.confounder.compute_loss(Z, Z_prime)
             self.log('confounder_loss', target_loss)
             return target_loss + confounder_loss + encoder_loss
         
