@@ -117,10 +117,7 @@ class SeparateTrainingWrapper(pl.LightningModule):
         self.ignore_confounder = ignore_confounder
     
     def training_step(self, batch, batch_idx):
-        X, Y, Z = batch
-
-        #mask out Z to get Z_prime
-        
+        X, Y, Z, Z_prime = batch      #get z_prime as well  
 
         target_loss = self.vb.target.compute_loss(Y, torch.cat([X, Z], 1))
         self.log('target_loss', target_loss)
