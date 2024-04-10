@@ -17,6 +17,10 @@ class SimpleExample(Dataset):
         X = np.random.normal(size=(size, dim)) * Z
         Y = (X + Z) * np.random.normal(size=(size, dim))
 
+        #create mask and z_prime
+        mask = np.random.binomial(1, 0.5, size=(size, dim))
+        Z_prime = torch.masked_fill(torch.tensor(Z), torch.tensor(mask), 0)
+
         print(Z.shape)
         print(X.shape)
         print(Y.shape)
@@ -24,6 +28,7 @@ class SimpleExample(Dataset):
         self.Z = np.array(Z, dtype='float32')
         self.X = np.array(X, dtype='float32')
         self.Y = np.array(Y, dtype='float32')
+        self.Z_prime = np.array(Z_prime, dtype='float32')
 
     def __len__(self):
         return len(self.Z)
@@ -33,7 +38,7 @@ class SimpleExample(Dataset):
         # Z is the confounder (Z -> X and Z -> Y)
         # X is the treatment (X -> Y)
         # Y is the target
-        return self.X[n], self.Y[n], self.Z[n]
+        return self.X[n], self.Y[n], self.Z[n], self.Z_prime[n]
 
 torch.manual_seed(0)
 
@@ -85,7 +90,8 @@ test_loader = torch.utils.data.DataLoader(test, batch_size=1000, shuffle=False)
 
 for X, Y, Z in test_loader:
     # To obtain interventional likelihood estimate, call get_log_backdoor()
-    interventional_likelihood = vb.get_log_backdoor(Y.to(device), X.to(device), backdoor_samples=10, component_samples=10)
+    Z_prime = 0
+    interventional_likelihood = vb.get_log_backdoor(Y.to(device), X.to(device), Z_prime.to(device), backdoor_samples=10, component_samples=10)
 
 
 print('The interventional log-likelihood of the test set is ', interventional_likelihood.sum().item())

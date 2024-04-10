@@ -18,7 +18,7 @@ class VariationalBackdoor(nn.Module):
         self.target = target_model
         self.encoder = encoder_model
     
-    def get_log_backdoor(self, Y, X, backdoor_samples=100, component_samples=100):
+    def get_log_backdoor(self, Y, X, z_prime, backdoor_samples=100, component_samples=100):
         
         batch_size = 64
         result = []
@@ -48,15 +48,18 @@ class VariationalBackdoor(nn.Module):
 
         return torch.cat(result)
     
-    def compute_backdoor_loss(self, Y, X, backdoor_samples=100, component_samples=100):
+    def compute_backdoor_loss(self, Y, X, Z_prime, backdoor_samples=100, component_samples=100):
 
         batch_size = 64
         result = []
         
         Y = torch.split(Y, batch_size)
         X = torch.split(X, batch_size)
+        #z_prime
+        Z_prime = torch.split(Z_prime, batch_size)
 
-        for x, y in zip(X, Y):
+
+        for x, y, z_prime in zip(X, Y, Z_prime):
 
             batch_size = x.size(0)
 
@@ -65,8 +68,11 @@ class VariationalBackdoor(nn.Module):
             x = x.unsqueeze(1).repeat(1, backdoor_samples, 1).flatten(start_dim=0, end_dim=1)
             y = y.unsqueeze(1).repeat(1, backdoor_samples, 1).flatten(start_dim=0, end_dim=1)
 
-            log_p_z = self.confounder.get_log_likelihood(z, None, k=component_samples)
+            #Send z_prime to the confounder model
+            log_p_z = self.confounder.get_log_likelihood(z, z_prime, k=component_samples)
             log_p_y_xz = self.target.get_log_likelihood(y, torch.cat([x, z], 1))
+
+            #TO DO: need to send z_prime to the encoder model by concatenation
             log_q_z_xy = self.encoder.get_log_likelihood(z, torch.cat([x, y], 1))
 
             log_bw =  log_p_z + log_p_y_xz - log_q_z_xy
@@ -112,6 +118,9 @@ class SeparateTrainingWrapper(pl.LightningModule):
     
     def training_step(self, batch, batch_idx):
         X, Y, Z = batch
+
+        #mask out Z to get Z_prime
+        
 
         target_loss = self.vb.target.compute_loss(Y, torch.cat([X, Z], 1))
         self.log('target_loss', target_loss)
