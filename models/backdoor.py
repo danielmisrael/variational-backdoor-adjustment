@@ -18,15 +18,16 @@ class VariationalBackdoor(nn.Module):
         self.target = target_model
         self.encoder = encoder_model
     
-    def get_log_backdoor(self, Y, X, z_prime, backdoor_samples=100, component_samples=100):
+    def get_log_backdoor(self, Y, X, Z_prime, backdoor_samples=100, component_samples=100):
         
         batch_size = 64
         result = []
         
         Y = torch.split(Y, batch_size)
         X = torch.split(X, batch_size)
+        Z_prime = torch.split(Z_prime, batch_size)
 
-        for x, y in zip(X, Y):
+        for x, y, z_prime in zip(X, Y, Z_prime):
 
             batch_size = x.size(0)
 
@@ -35,9 +36,9 @@ class VariationalBackdoor(nn.Module):
             x = x.unsqueeze(1).repeat(1, backdoor_samples, 1).flatten(start_dim=0, end_dim=1)
             y = y.unsqueeze(1).repeat(1, backdoor_samples, 1).flatten(start_dim=0, end_dim=1)
 
-            log_p_z = self.confounder.get_log_likelihood(z, None, k=component_samples)
+            log_p_z = self.confounder.get_log_likelihood(z, z_prime, k=component_samples)
             log_p_y_xz = self.target.get_log_likelihood(y, torch.cat([x, z], 1))
-            log_q_z_xy = self.encoder.get_log_likelihood(z, torch.cat([x, y], 1))
+            log_q_z_xy = self.encoder.get_log_likelihood(z, torch.cat([x, y, z_prime], 1))
 
             log_bw =  log_p_z + log_p_y_xz - log_q_z_xy
             log_bw = log_bw.reshape(batch_size, backdoor_samples)
@@ -73,7 +74,7 @@ class VariationalBackdoor(nn.Module):
             log_p_y_xz = self.target.get_log_likelihood(y, torch.cat([x, z], 1))
 
             #TO DO: need to send z_prime to the encoder model by concatenation
-            log_q_z_xy = self.encoder.get_log_likelihood(z, torch.cat([x, y], 1))
+            log_q_z_xy = self.encoder.get_log_likelihood(z, torch.cat([x, y, z_prime], 1))
 
             log_bw =  log_p_z + log_p_y_xz - log_q_z_xy
             log_bw = log_bw.reshape(batch_size, backdoor_samples)
@@ -147,9 +148,9 @@ class FinetuningWrapper(pl.LightningModule):
         self.lr = lr
     
     def training_step(self, batch, batch_idx):
-        X, Y, Z = batch
+        X, Y, Z, Z_prime = batch
 
-        backdoor_loss = -self.vb.get_log_backdoor(Y, X, backdoor_samples=self.vb.backdoor_samples,
+        backdoor_loss = -self.vb.get_log_backdoor(Y, X, Z_prime, backdoor_samples=self.vb.backdoor_samples,
                     component_samples=self.vb.component_samples).mean()
         
 

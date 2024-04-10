@@ -88,9 +88,9 @@ vb.load_state_dict(torch.load(f'trained_models/example/example.pt'))
 test = SimpleExample(1000, dim)
 test_loader = torch.utils.data.DataLoader(test, batch_size=1000, shuffle=False)
 
-for X, Y, Z in test_loader:
+for X, Y, Z, Z_prime in test_loader:
     # To obtain interventional likelihood estimate, call get_log_backdoor()
-    Z_prime = 0
+    #Z_prime = 0
     interventional_likelihood = vb.get_log_backdoor(Y.to(device), X.to(device), Z_prime.to(device), backdoor_samples=10, component_samples=10)
 
 
