@@ -5,7 +5,7 @@ This repository contains the implementation of Variational Backdoor Adjustment (
 
 >__Escaping the Curse of High Dimensional Backdoor Adjustment__
 >
-> Authors: Daniel Israel, Guy Van den Broeck, Aditya Grover (link to be added)
+> Authors: Daniel Israel, Guy Van den Broeck, Aditya Grover ([link](https://arxiv.org/abs/2310.06100))
 >
 >Abstract: Backdoor adjustment is an important technique in causal inference for estimating interventional quantities from purely observational data. In medical settings for example, backdoor adjustment can be used to control for confounding and isolate the effectiveness of a treatment. However, high dimensional treatments and confounders pose a series of potential pitfalls. Backdoor adjustment over high dimensional confounders is often intractable. As a remedy, previous approaches often model confounding with latent variables in VAEs, but these methods perform backdoor adjustment over unidentifiable, unobserved variables, leading to inconsistent estimates. In this work, we show that a generative modeling approach can be applied to backdoor adjustment in a fully identified high dimensional setting. Specifically, we cast backdoor adjustment as an optimization problem in variational inference that is constrained by the distribution of a fully observed confounder. Empirically, our method is able to estimate interventional likelihood in a variety of high dimensional settings, including semi-synthetic X-ray medical data. To the best of our knowledge, this is the first application of backdoor adjustment in which all the relevant variables are high dimensional.
 
