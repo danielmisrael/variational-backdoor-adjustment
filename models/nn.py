@@ -206,7 +206,8 @@ class CategoricalNN(nn.Module):
 
         logits, probs = self.forward(c)
 
-        log_likelihood = torch.zeros(x.size(0)).to('cuda')
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        log_likelihood = torch.zeros(x.size(0)).to(device)
 
         for i, prob in enumerate(probs):
             dist = td.Categorical(probs=prob)
@@ -235,7 +236,8 @@ class CategoricalNN(nn.Module):
 
 
 def sample_gumbel(shape, eps=1e-20):
-    U = torch.rand(shape).to('cuda')
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    U = torch.rand(shape).to(device)
     return -Variable(torch.log(-torch.log(U + eps) + eps))
 
 def gumbel_softmax_sample(logits, temperature):

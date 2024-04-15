@@ -19,7 +19,8 @@ class SimpleExample(Dataset):
 
         #create mask and z_prime
         mask = np.random.binomial(1, 0.5, size=(size, dim))
-        Z_prime = torch.masked_fill(torch.tensor(Z), torch.tensor(mask), 0)
+        print("mask", mask)
+        Z_prime = torch.masked_fill(torch.tensor(Z).float(), torch.tensor(mask).bool(), 0)
 
         print(Z.shape)
         print(X.shape)
@@ -53,13 +54,13 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 # A variety of different models are given in the "models" folder. The best parameterization depends on the data.
 
 # P(Z)
-confounder = GaussianIWAE(feature_size=dim, latent_size=dim, class_size=0, hidden_size=10, num_samples=5).to(device)
+confounder = GaussianIWAE(feature_size=dim, latent_size=dim, class_size=dim, hidden_size=10, num_samples=5).to(device)
 
 # P(Y | X, Z)
-target = SimpleGaussianNN(feature_size=dim, class_size=2 * dim).to(device)
+target = SimpleGaussianNN(feature_size=dim, class_size=3 * dim).to(device)
 
 # P(Z | X, Y)
-encoder = SimpleGaussianNN(feature_size=dim, class_size=2 * dim).to(device)
+encoder = SimpleGaussianNN(feature_size=dim, class_size=3 * dim).to(device)
 
 # Intialize class for Variational Backdoor Adjustment
 vb = VariationalBackdoor(confounder_model=confounder, 
@@ -72,18 +73,19 @@ vb = VariationalBackdoor(confounder_model=confounder,
 # Two step process: first train each of the components separately, then finetune the encoder to maximize the interventional density
 print('Separate Component Training')
 logger1 = CSVLogger('trained_models/example/logs', name='separate_training')
-trainer1 = pl.Trainer(max_epochs=10, default_root_dir='trained_models/', logger=logger1)
+trainer1 = pl.Trainer(max_epochs=2, default_root_dir='trained_models/', logger=logger1)
 trainer1.fit(model=SeparateTrainingWrapper(vb), train_dataloaders=train_loader)
+torch.save(vb.state_dict(), f'trained_models/example/example.pt')
 
+vb.load_state_dict(torch.load(f'trained_models/example/example.pt'))
 print('Encoder Finetuning')
 logger2 = CSVLogger('trained_models/example/logs', name='finetuning')
 trainer2 = pl.Trainer(max_epochs=2, default_root_dir='trained_models/', logger=logger2)
 trainer2.fit(model=FinetuningWrapper(vb), train_dataloaders=train_loader)
-
 torch.save(vb.state_dict(), f'trained_models/example/example.pt')
 
-vb.load_state_dict(torch.load(f'trained_models/example/example.pt'))
 
+vb.load_state_dict(torch.load(f'trained_models/example/example.pt'))
 # Some test data from the same distribution
 test = SimpleExample(1000, dim)
 test_loader = torch.utils.data.DataLoader(test, batch_size=1000, shuffle=False)

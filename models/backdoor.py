@@ -18,26 +18,28 @@ class VariationalBackdoor(nn.Module):
         self.target = target_model
         self.encoder = encoder_model
     
-    def get_log_backdoor(self, Y, X, z_prime, backdoor_samples=100, component_samples=100):
+    def get_log_backdoor(self, Y, X, Z_prime, backdoor_samples=100, component_samples=100):
         
         batch_size = 64
         result = []
         
         Y = torch.split(Y, batch_size)
         X = torch.split(X, batch_size)
+        Z_prime = torch.split(Z_prime, batch_size)
 
-        for x, y in zip(X, Y):
+        for x, y, z_prime in zip(X, Y, Z_prime):
 
             batch_size = x.size(0)
 
-            z = self.encoder.sample(backdoor_samples, torch.cat([x, y], 1))
+            z = self.encoder.sample(backdoor_samples, torch.cat([x, y, z_prime], 1))
             z = z.flatten(start_dim=0, end_dim=1)
             x = x.unsqueeze(1).repeat(1, backdoor_samples, 1).flatten(start_dim=0, end_dim=1)
             y = y.unsqueeze(1).repeat(1, backdoor_samples, 1).flatten(start_dim=0, end_dim=1)
+            z_prime = z_prime.unsqueeze(1).repeat(1, backdoor_samples, 1).flatten(start_dim=0, end_dim=1)
 
-            log_p_z = self.confounder.get_log_likelihood(z, None, k=component_samples)
-            log_p_y_xz = self.target.get_log_likelihood(y, torch.cat([x, z], 1))
-            log_q_z_xy = self.encoder.get_log_likelihood(z, torch.cat([x, y], 1))
+            log_p_z = self.confounder.get_log_likelihood(z, z_prime, k=component_samples)
+            log_p_y_xz = self.target.get_log_likelihood(y, torch.cat([x, z, z_prime], 1))
+            log_q_z_xy = self.encoder.get_log_likelihood(z, torch.cat([x, y, z_prime], 1))
 
             log_bw =  log_p_z + log_p_y_xz - log_q_z_xy
             log_bw = log_bw.reshape(batch_size, backdoor_samples)
@@ -119,15 +121,15 @@ class SeparateTrainingWrapper(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         X, Y, Z, Z_prime = batch      #get z_prime as well  
 
-        target_loss = self.vb.target.compute_loss(Y, torch.cat([X, Z], 1))
+        target_loss = self.vb.target.compute_loss(Y, torch.cat([X, Z, Z_prime], 1))
         self.log('target_loss', target_loss)
 
-        encoder_loss = self.vb.encoder.compute_loss(Z, torch.cat([X, Y], 1))
+        encoder_loss = self.vb.encoder.compute_loss(Z, torch.cat([X, Y, Z_prime], 1))
         self.log('encoder_loss', encoder_loss)
 
         if not self.ignore_confounder:
 
-            confounder_loss = self.vb.confounder.compute_loss(Z, None)
+            confounder_loss = self.vb.confounder.compute_loss(Z, Z_prime)
             self.log('confounder_loss', target_loss)
             return target_loss + confounder_loss + encoder_loss
         
@@ -147,9 +149,9 @@ class FinetuningWrapper(pl.LightningModule):
         self.lr = lr
     
     def training_step(self, batch, batch_idx):
-        X, Y, Z = batch
+        X, Y, Z, Z_prime = batch
 
-        backdoor_loss = -self.vb.get_log_backdoor(Y, X, backdoor_samples=self.vb.backdoor_samples,
+        backdoor_loss = -self.vb.get_log_backdoor(Y, X, Z_prime, backdoor_samples=self.vb.backdoor_samples,
                     component_samples=self.vb.component_samples).mean()
         
 
