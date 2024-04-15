@@ -75,7 +75,7 @@ class VariationalBackdoor(nn.Module):
             log_p_y_xz = self.target.get_log_likelihood(y, torch.cat([x, z], 1))
 
             #TO DO: need to send z_prime to the encoder model by concatenation
-            log_q_z_xy = self.encoder.get_log_likelihood(z, torch.cat([x, y], 1))
+            log_q_z_xy = self.encoder.get_log_likelihood(z, torch.cat([x, y, z_prime], 1))
 
             log_bw =  log_p_z + log_p_y_xz - log_q_z_xy
             log_bw = log_bw.reshape(batch_size, backdoor_samples)
