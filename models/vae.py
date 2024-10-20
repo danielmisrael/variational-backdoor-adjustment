@@ -505,3 +505,81 @@ class ConditionalIWAETrainingWrapper(pl.LightningModule):
         opt =  optim.Adam(self.model.parameters(), lr=1e-3)
         return opt
 
+
+
+
+class BernoulliIWAE(BaseIWAE):
+    def __init__(self, feature_size, latent_size, class_size, hidden_size, num_samples):
+        super(BernoulliIWAE, self).__init__(feature_size, latent_size, class_size, hidden_size, num_samples)
+
+        # decode
+        self.fc3 = nn.Linear(latent_size + class_size, hidden_size)
+        self.fc4 = nn.Linear(hidden_size, hidden_size)
+        self.fc5 = nn.Linear(hidden_size, feature_size)
+  # Single output for probabilities
+
+        self.relu = nn.ReLU()
+        self.sigmoid = nn.Sigmoid()
+
+    def decode(self, z, c): 
+        if c is not None:
+            c = c.unsqueeze(1).repeat(1, z.size(1), 1)
+            inputs = torch.cat([z, c], dim=-1)
+        else:
+            inputs = z
+
+        h3 = self.relu(self.fc3(inputs))
+        h4 = self.relu(self.fc4(h3)) 
+
+        probs = self.sigmoid(self.fc5(h4))  # Output probabilities
+        return probs
+
+    def sample(self, num_samples, c):
+        if c is None:
+            batch_size = 1
+        else:
+            batch_size = c.size(0)
+        random = torch.randn(batch_size, num_samples, self.latent_size).to('cuda')
+        probs = self.decode(random, c)
+  # Get probabilities
+        dist = td.Bernoulli(probs=probs)  # Bernoulli distribution
+        samp = dist.sample()  # Sample from Bernoulli
+        return samp
+
+    def forward(self, x, c, k):
+        mu_z, logvar_z = self.encode(x, c)
+
+        std = torch.exp(0.5*logvar_z)
+        q_z_g_x = td.Normal(loc=mu_z, scale=std)
+        
+        # samples using reparameterization trick
+        z = q_z_g_x.rsample(torch.empty(k).size()).permute(1, 0, -1)
+        probs = self.decode(z,c)  # Get probabilities
+        return probs, mu_z, logvar_z, z, q_z_g_x  # Return probabilities instead of recon_x, logvar_x
+    
+    def get_importance_weights(self, x, c, k):
+
+        [probs, mu_z, logvar_z, z, q_z_g_x] = self.forward(x, c, k)  # Get probabilities from forward
+        
+        x_s = x.unsqueeze(1).repeat(1, k, 1)
+        
+        mu_prior = torch.zeros(self.latent_size).to('cuda')
+        std_prior = torch.ones(self.latent_size).to('cuda')
+        p_z = td.Normal(loc=mu_prior, scale=std_prior)
+        log_p_z = p_z.log_prob(z) 
+
+
+        p_x_g_z = td.Bernoulli(probs=probs)  # Bernoulli likelihood
+        log_p_x_g_z = p_x_g_z.log_prob(x_s)  # Log-likelihood of data
+
+        mu_z_s = mu_z.unsqueeze(1).repeat(1, k, 1)
+        std_z_s = (0.5 * logvar_z).exp().unsqueeze(1).repeat(1, k, 1)
+        log_q_z_g_x = td.Normal(mu_z_s, std_z_s).log_prob(z)
+
+        log_p_z = log_p_z.sum(2)
+        log_q_z_g_x = log_q_z_g_x.sum(2)
+        log_p_x_g_z = log_p_x_g_z.sum(2)
+
+        log_w = (log_p_x_g_z + log_p_z - log_q_z_g_x)
+        
+        return log_w

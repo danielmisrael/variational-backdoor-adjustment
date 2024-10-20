@@ -288,3 +288,51 @@ class SimpleGaussianNN(GaussianNN):
 
         return mu, logvar
 
+class BernoulliNN(nn.Module):
+    def __init__(self, feature_size, class_size, hidden_size):
+        super(BernoulliNN, self).__init__()
+        self.feature_size = feature_size
+        self.hidden_size = hidden_size
+        
+        # encode
+        self.fc1  = nn.Linear(class_size, hidden_size)
+        self.fc2 = nn.Linear(hidden_size, hidden_size)
+        self.fc3 = nn.Linear(hidden_size, feature_size)
+
+        self.relu = nn.ReLU()
+        self.sigmoid = nn.Sigmoid()
+
+    def forward(self, c):
+        
+        h1 = self.relu(self.fc1(c))
+        h2 = self.relu(self.fc2(h1))
+
+        probs = self.sigmoid(self.fc3(h2))  # Output probabilities
+        return probs
+
+    def compute_loss(self, x, c):
+        
+        return -self.get_log_likelihood(x, c).mean()
+    
+    def step(self, opt, x, c):
+        opt.zero_grad()
+        loss = self.compute_loss(x, c)
+        loss.backward()
+        opt.step()
+        return loss.detach().cpu().numpy()
+
+    def get_log_likelihood(self, x, c):
+
+        
+        probs = self.forward(c)
+        dist = td.Bernoulli(probs=probs)  # Bernoulli distribution
+        log_prob = dist.log_prob(x)
+        return log_prob.sum(-1)
+    
+
+    def sample(self, num_samples, c):
+        
+        probs = self.forward(c)
+        dist = td.Bernoulli(probs=probs)  # Bernoulli distribution
+        samp = dist.sample(torch.empty(num_samples).size())
+        return samp.permute(1, 0, -1)
