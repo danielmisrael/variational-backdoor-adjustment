@@ -104,7 +104,9 @@ class BernoulliIWAE(BaseIWAE):
             batch_size = 1
         else:
             batch_size = c.size(0)
-        random = torch.randn(batch_size, num_samples, self.latent_size).to('cuda')
+
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        random = torch.randn(batch_size, num_samples, self.latent_size).to(device)
         recon_x = self.decode(random, c)
         dist = td.Bernoulli(recon_x)
         samp = dist.sample()
@@ -130,8 +132,9 @@ class BernoulliIWAE(BaseIWAE):
         
         x_s = x.unsqueeze(1).repeat(1, k, 1)
         
-        mu_prior = torch.zeros(self.latent_size).to('cuda')
-        std_prior = torch.ones(self.latent_size).to('cuda')
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        mu_prior = torch.zeros(self.latent_size).to(device)
+        std_prior = torch.ones(self.latent_size).to(device)
         p_z = td.Normal(loc=mu_prior, scale=std_prior)
         log_p_z = p_z.log_prob(z)
         
@@ -183,7 +186,8 @@ class GaussianIWAE(BaseIWAE):
             batch_size = 1
         else:
             batch_size = c.size(0)
-        random = torch.randn(batch_size, num_samples, self.latent_size).to('cuda')
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        random = torch.randn(batch_size, num_samples, self.latent_size).to(device)
         recon_x, logvar_x = self.decode(random, c)
         std_x = torch.exp(0.5*logvar_x)
         dist = td.Normal(loc=recon_x, scale=std_x)
@@ -207,8 +211,9 @@ class GaussianIWAE(BaseIWAE):
         
         x_s = x.unsqueeze(1).repeat(1, k, 1)
         
-        mu_prior = torch.zeros(self.latent_size).to('cuda')
-        std_prior = torch.ones(self.latent_size).to('cuda')
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        mu_prior = torch.zeros(self.latent_size).to(device)
+        std_prior = torch.ones(self.latent_size).to(device)
         p_z = td.Normal(loc=mu_prior, scale=std_prior)
         log_p_z = p_z.log_prob(z)
 
@@ -265,7 +270,9 @@ class ImageGaussianIWAE(BaseIWAE):
             batch_size = 1
         else:
             batch_size = c.size(0)
-        random = torch.randn(batch_size, num_samples, self.latent_size).to('cuda')
+
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        random = torch.randn(batch_size, num_samples, self.latent_size).to(device)
         recon_x, logvar_x = self.decode(random, c)
         std_x = torch.exp(0.5*logvar_x)
         dist = td.Normal(loc=recon_x, scale=std_x)
@@ -288,9 +295,11 @@ class ImageGaussianIWAE(BaseIWAE):
         [recon_x, logvar_x, mu_z, logvar_z, z, q_z_g_x] = self.forward(x, c, k)
         
         x_s = x.unsqueeze(1).repeat(1, k, 1)
+
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         
-        mu_prior = torch.zeros(self.latent_size).to('cuda')
-        std_prior = torch.ones(self.latent_size).to('cuda')
+        mu_prior = torch.zeros(self.latent_size).to(device)
+        std_prior = torch.ones(self.latent_size).to(device)
         p_z = td.Normal(loc=mu_prior, scale=std_prior)
         log_p_z = p_z.log_prob(z)
 
@@ -389,13 +398,15 @@ class CategoricalIWAE(BaseIWAE):
             batch_size = 1
         else:
             batch_size = c.size(0)
-        random = torch.randn(batch_size, num_samples, self.latent_size).to('cuda')
+
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        random = torch.randn(batch_size, num_samples, self.latent_size).to(device)
         probs = self.decode(random, c)
         samples = []
         for i, prob in enumerate(probs):
             dist = td.Categorical(probs=prob)
             index = dist.sample()
-            sample = torch.eye(self.categories[i]).to('cuda')
+            sample = torch.eye(self.categories[i]).to(device)
             samples.append(sample[index])
         result = torch.cat(samples, dim=2)
 
@@ -419,16 +430,15 @@ class CategoricalIWAE(BaseIWAE):
         x_s = x.unsqueeze(1).repeat(1, k, 1)
         split_sizes = list(self.categories)
         x_s = torch.split(x_s, split_sizes, dim=2)
-
     
-        
-        mu_prior = torch.zeros(self.latent_size).to('cuda')
-        std_prior = torch.ones(self.latent_size).to('cuda')
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        mu_prior = torch.zeros(self.latent_size).to(device)
+        std_prior = torch.ones(self.latent_size).to(device)
         p_z = td.Normal(loc=mu_prior, scale=std_prior)
         log_p_z = p_z.log_prob(z)
         
 
-        log_p_x_g_z = torch.zeros((log_p_z.size(0), log_p_z.size(1))).to('cuda')
+        log_p_x_g_z = torch.zeros((log_p_z.size(0), log_p_z.size(1))).to(device)
 
         for i, prob in enumerate(probs):
             p_x_g_z = td.Categorical(probs=prob)
